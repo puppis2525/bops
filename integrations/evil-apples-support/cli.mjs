@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { Queue } from './queue.mjs';
-import { WixReader, uuid } from './wix.mjs';
+import { WixReader, uuid, appAuthorization } from './wix.mjs';
 import { createSupportServer } from './server.mjs';
 
 process.umask(0o077);
@@ -10,7 +10,10 @@ const demo = command === 'demo';
 const site = demo ? '00000000-0000-0000-0000-000000000001' : uuid(process.env.WIX_SUPPORT_SITE_ID);
 const dbPath = resolve(process.env.SUPPORT_DB || '.data/evil-apples-support/' + (demo ? 'demo.sqlite' : 'queue.sqlite'));
 const queue = new Queue(dbPath);
-const reader = demo ? null : new WixReader(site, process.env.WIX_SUPPORT_AUTH);
+const authorization = !demo && process.env.WIX_SUPPORT_APP_ID
+  ? appAuthorization(process.env.WIX_SUPPORT_APP_ID, process.env.WIX_SUPPORT_APP_SECRET, process.env.WIX_SUPPORT_INSTANCE_ID)
+  : process.env.WIX_SUPPORT_AUTH;
+const reader = demo ? null : new WixReader(site, authorization);
 
 try {
   if (demo) {

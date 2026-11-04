@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { parseHTML } from 'linkedom';
 import { Queue, normalize } from './queue.mjs';
-import { WixReader, webhookConversation } from './wix.mjs';
+import { WixReader, webhookConversation, appAuthorization } from './wix.mjs';
 import { createSupportServer } from './server.mjs';
 
 const site = '00000000-0000-0000-0000-000000000001';
@@ -165,4 +165,22 @@ test('review page loads cases, escapes customer text, saves edits and approves w
   await until(() => document.getElementById('status').textContent.includes('No message was sent.'));
   await until(() => document.getElementById('approve').disabled === false);
   assert.equal(q.get(1).state, 'approved_for_manual_send');
+});
+
+ test('OAuth caches tokens, renews before expiry, and hides error bodies', async () => {
+  let now = 0; let calls = 0;
+  const auth = appAuthorization(site, 'synthetic-secret', conversation, async (url, options) => {
+    calls++;
+    assert.equal(url, 'https://www.wixapis.com/oauth2/token');
+    assert.equal(options.redirect, 'error');
+    assert.equal(JSON.parse(options.body).grant_type, 'client_credentials');
+    return { ok: true, text: async () => JSON.stringify({ access_token: 'test-' + calls, expires_in: 14400 }) };
+  }, () => now);
+  assert.deepEqual(await Promise.all([auth(), auth()]), ['test-1', 'test-1']);
+  assert.equal(calls, 1);
+  now = 14340000;
+  assert.equal(await auth(), 'test-2');
+  const denied = appAuthorization(site, 'synthetic', conversation, async () => ({ ok: false, status: 401, text: async () => 'secret error body' }));
+  await assert.rejects(denied(), { message: 'Wix authentication failed: HTTP 401' });
+  await assert.rejects(denied(), { message: 'Wix authentication failed: HTTP 401' });
 });

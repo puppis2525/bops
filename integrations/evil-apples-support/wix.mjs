@@ -5,6 +5,35 @@ export function uuid(value) {
   return value;
 }
 
+// App credentials stay server-side. Cache short-lived tokens only in memory.
+export function appAuthorization(appId, secret, instanceId, fetcher = fetch, clock = Date.now) {
+  uuid(appId); uuid(instanceId);
+  if (!secret) throw new Error('Wix app secret is not configured');
+  let cached; let expires = 0; let pending;
+  return async function authorization() {
+    if (cached && clock() < expires) return cached;
+    if (!pending) pending = (async () => {
+      const response = await fetcher('https://www.wixapis.com/oauth2/token', {
+        method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15000),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grant_type: 'client_credentials', client_id: appId,
+          client_secret: secret, instance_id: instanceId })
+      });
+      if (!response.ok) throw new Error('Wix authentication failed: HTTP ' + response.status);
+      const text = await response.text();
+      if (text.length > 100000) throw new Error('Wix authentication response too large');
+      let data;
+      try { data = JSON.parse(text); } catch { throw new Error('Wix authentication response malformed'); }
+      const lifetime = Number(data.expires_in);
+      if (typeof data.access_token !== 'string' || !data.access_token || !Number.isFinite(lifetime) || lifetime <= 60) throw new Error('Wix authentication response malformed');
+      cached = data.access_token;
+      expires = clock() + (Math.min(lifetime, 14400) - 60) * 1000;
+      return cached;
+    })().finally(() => { pending = undefined; });
+    return pending;
+  };
+}
+
 // Only these GET paths exist in this adapter. It has no send/mutation operation.
 export class WixReader {
   constructor(site, authorization, fetcher = fetch) {
@@ -12,9 +41,10 @@ export class WixReader {
   }
   async read(path) {
     if (!this.authorization) throw new Error('Wix runtime credential is not configured');
+    const authorization = typeof this.authorization === 'function' ? await this.authorization() : this.authorization;
     const response = await this.fetcher('https://www.wixapis.com/inbox/v2/' + path, {
       method: 'GET', redirect: 'error', signal: AbortSignal.timeout(15000),
-      headers: { Authorization: this.authorization, 'wix-site-id': this.site }
+      headers: { Authorization: authorization, 'wix-site-id': this.site }
     });
     if (!response.ok) throw new Error('Wix read failed: HTTP ' + response.status);
     const text = await response.text();

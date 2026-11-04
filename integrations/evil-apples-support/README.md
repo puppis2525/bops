@@ -47,7 +47,7 @@ committed file. The ChatGPT Wix connection does not export these credentials.
 | Variable | Meaning |
 |---|---|
 | `WIX_SUPPORT_SITE_ID` | Target site's confirmed UUID |
-| `WIX_SUPPORT_AUTH` | Authorization header value for a separately provisioned Wix API key or access token with Read Inbox Messages; token renewal is external |
+| `WIX_SUPPORT_AUTH` | Optional fallback authorization header; leave empty when using app OAuth |
 | `SUPPORT_REVIEW_PASSWORD` | Random password, at least 24 characters |
 | `SUPPORT_DB` | Optional absolute SQLite path on a durable volume; default `.data/evil-apples-support/queue.sqlite` |
 | `SUPPORT_PORT` | Optional local port, default 3221 |
@@ -137,3 +137,5 @@ a Wix webhook or deploy any service. No external webhook has been accepted yet.
 - [Incoming message webhook](https://dev.wix.com/docs/api-reference/crm/communication/inbox/messages/message-sent-to-business)
 - [REST webhook structure](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-the-structure-of-webhooks)
 - [Verify webhook signatures](https://dev.wix.com/docs/build-apps/develop-your-app/develop-a-self-managed-app/webhooks/handle-events-with-webhooks-for-self-hosting-without-the-java-script-sdk)
+
+Installed-app OAuth uses `WIX_SUPPORT_APP_ID`, `WIX_SUPPORT_APP_SECRET`, and `WIX_SUPPORT_INSTANCE_ID`. Store the secret only in the private runtime environment. The adapter obtains and renews access tokens server-side, caching them only in memory. See https://dev.wix.com/docs/build-apps/develop-your-app/auth/authenticate-using-oauth .
