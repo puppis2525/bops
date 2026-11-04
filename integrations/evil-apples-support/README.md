@@ -64,6 +64,9 @@ IDs or messages are included in the source or test fixtures.
 
 ## Incoming webhook configuration
 
+For a prepared Supervisor program, protected environment-file template, and
+host acceptance checklist, see [deploy/README.md](deploy/README.md).
+
 After choosing a durable host, configure a Wix custom app subscription for
 **Message Sent To Business**, a read permission, and a callback ending in
 `/hooks/wix`. Set the confirmed installation ID and the public key supplied by
